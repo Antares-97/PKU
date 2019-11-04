@@ -1,0 +1,172 @@
+\documentclass[paper=a4, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
+\usepackage[UTF8, heading = false, scheme = plain]{ctex}
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+\usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
+\usepackage[english]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+
+\usepackage{sectsty} % Allows customizing section commands
+\allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
+
+\usepackage{fancyhdr} % Custom headers and footers
+
+\usepackage{listings}
+
+
+
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{	
+\normalfont \normalsize 
+\textsc{Peking University, Department of Physics} \\ [25pt] % Your university, school and/or department name(s)
+\horrule{0.5pt} \\[0.4cm] % Thin top horizontal rule
+\huge 基于双向LSTM的sqe2seq中文分词 \\ % The assignment title
+\horrule{2pt} \\[0.5cm] % Thick bottom horizontal rule
+}
+
+\author{汪子龙，1500011371} % Your name
+
+\date{\normalsize\today} % Today's date or a custom date
+
+\begin{document}
+
+\maketitle % Print the title
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 1
+%----------------------------------------------------------------------------------------
+
+\section{问题描述}
+
+%\lipsum[2] % Dummy text
+
+% \begin{align} 
+% \begin{split}
+% (x+y)^3 	&= (x+y)^2(x+y)\\
+% &=(x^2+2xy+y^2)(x+y)\\
+% &=(x^3+2x^2y+xy^2) + (x^2y+2xy^2+y^3)\\
+% &=x^3+3x^2y+3xy^2+y^3
+% \end{split}					
+% \end{align}
+
+编程实现一个LSTM模型来完成中文自动切词任务，将连续的中文文本切分成词序列。通过测试数据计算Precision, Recall, F-score. 
+
+数据集来自Sighan-2004中文切词国际比赛的标准数据.
+
+训练数据为86924个句子，测试数据为3985个句子，提供了标准测试数据答案.
+
+%------------------------------------------------
+
+% \subsection{Heading on level 2 (subsection)}
+
+% Lorem ipsum dolor sit amet, consectetuer adipiscing elit. 
+% \begin{align}
+% A = 
+% \begin{bmatrix}
+% A_{11} & A_{21} \\
+% A_{21} & A_{22}
+% \end{bmatrix}
+% \end{align}
+% Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.
+
+% %------------------------------------------------
+
+% \subsubsection{Heading on level 3 (subsubsection)}
+
+% \lipsum[3] % Dummy text
+
+% \paragraph{Heading on level 4 (paragraph)}
+
+% \lipsum[6] % Dummy text
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 2
+%----------------------------------------------------------------------------------------
+
+\section{实验方法}
+\subsection{分词的字标注法}
+通过字标注法将分词问题变成序列标注问题，对于输入序列，输出大小相同、一一对应的标注序列.
+
+能够实现分词的最简单标注方法是2tag，即通过0、1判断切分或不切分，但通常情况下2tag表现不好，因为两个标记很难体现语义规律.
+在这里选择了更常用的4tag标记，分为{b:begin, 多字词的开头; m: middle, 多字词的中间; e: end, 多字词的结尾; s: single, 单字词}.
+除此之外还使用了字符'x'标记字符长度小于max$\_$length时padding的部分.
+\begin{lstlisting}
+我  认为  人生  价值  的  实现  应该  有  两  方面  的  内容  ：  一  是  个人  对  社会  的  贡献  ，  二  是  社会  对  个人  的  尊重  和  满足  。
+
+s be be be be s be be s s be s be s s sbe s be s be s s s be s be s be s be s
+\end{lstlisting}
+
+\subsection{训练网络，双向LSTM}
+LSTM(Long SHort Term Memory)是时间递归神经网络，能解决RNN中的长期依赖问题，如图\ref{pic_lstm}所示.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/LSTM.png}
+    \caption{LSTM,中的重复模块包含四个交互的层}
+    \label{pic_lstm}
+\end{figure}
+
+LSTM的关键就是细胞状态，水平线在图上方贯穿运行.
+细胞状态类似于传送带，直接在整个链上运行，只有一些少量的线性交互.
+信息在上面流传保持不变会很容易.
+
+
+
+\subsection{Viterbi算法求解全局最优路径}
+% \subsection{Example of list (3*itemize)}
+% \begin{itemize}
+% 	\item First item in a list 
+% 		\begin{itemize}
+% 		\item First item in a list 
+% 			\begin{itemize}
+% 			\item First item in a list 
+% 			\item Second item in a list 
+% 			\end{itemize}
+% 		\item Second item in a list 
+% 		\end{itemize}
+% 	\item Second item in a list 
+% \end{itemize}
+
+%------------------------------------------------
+
+
+% \subsection{Example of list (enumerate)}
+% \begin{enumerate}
+% \item First item in a list 
+% \item Second item in a list 
+% \item Third item in a list
+% \end{enumerate}
+
+%----------------------------------------------------------------------------------------
+
+\section{实验设置与步骤}
+\subsection{数据预处理}
+\section{实验结果}
+
+
+
+
+
+
+\end{document}
